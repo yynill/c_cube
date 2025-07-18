@@ -39,7 +39,7 @@ void cleanup_sdl(void);
 void draw_origin();
 void draw_point(Point p, SDL_Color color);
 void draw_line(Point p1, Point p2, SDL_Color color);
-// void draw_square_face(Point p1, Point p2, Point p3, Point p4, SDL_Color color);
+void draw_square_face(Point p1, Point p2, Point p3, Point p4, SDL_Color color);
 Point apply_camera(Point p);
 
 #endif // MAIN_H

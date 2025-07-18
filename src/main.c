@@ -9,6 +9,11 @@ SDL_Point *origin = NULL;
 SDL_Texture *circle_texture = NULL;
 Camera *camera = NULL;
 
+SDL_Color white = {255, 255, 255, 255};
+SDL_Color red = {255, 0, 0, 255};
+SDL_Color blue = {0, 0, 255, 255};
+SDL_Color green = {0, 255, 0, 255};
+
 int init_sdl() {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
@@ -136,52 +141,29 @@ int main() {
 
         Point p0 = {-50, -50, -50};
         Point p1 = {-50, -50,  50};
-        Point p2 = {-50,  50, -50};
-        Point p3 = {-50,  50,  50};
+        Point p2 = {-50,  50,  50};
+        Point p3 = {-50,  50, -50};
         Point p4 = { 50, -50, -50};
         Point p5 = { 50, -50,  50};
-        Point p6 = { 50,  50, -50};
-        Point p7 = { 50,  50,  50};
-        SDL_Color white = {255, 255, 255, 255};
+        Point p6 = { 50,  50,  50};
+        Point p7 = { 50,  50, -50};
 
         draw_line(p0, p1, white);
-        draw_line(p0, p2, white);
+        draw_line(p0, p3, white);
         draw_line(p0, p4, white);
-        draw_line(p1, p3, white);
+        draw_line(p1, p2, white);
         draw_line(p1, p5, white);
         draw_line(p2, p3, white);
-        draw_line(p2, p6, white);
         draw_line(p3, p7, white);
+        draw_line(p2, p6, white);
         draw_line(p4, p5, white);
-        draw_line(p4, p6, white);
-        draw_line(p5, p7, white);
+        draw_line(p4, p7, white);
+        draw_line(p5, p6, white);
         draw_line(p6, p7, white);
 
-        // draw_square_face();
-
-        // Point q0 = {200 - 50, 200 - 50, 200 - 50};
-        // Point q1 = {200 - 50, 200 - 50, 200 + 50};
-        // Point q2 = {200 - 50, 200 + 50, 200 - 50};
-        // Point q3 = {200 - 50, 200 + 50, 200 + 50};
-        // Point q4 = {200 + 50, 200 - 50, 200 - 50};
-        // Point q5 = {200 + 50, 200 - 50, 200 + 50};
-        // Point q6 = {200 + 50, 200 + 50, 200 - 50};
-        // Point q7 = {200 + 50, 200 + 50, 200 + 50};
-
-        // SDL_Color green = {0, 255, 0, 255};
-
-        // draw_line(q0, q1, green);
-        // draw_line(q0, q2, green);
-        // draw_line(q0, q4, green);
-        // draw_line(q1, q3, green);
-        // draw_line(q1, q5, green);
-        // draw_line(q2, q3, green);
-        // draw_line(q2, q6, green);
-        // draw_line(q3, q7, green);
-        // draw_line(q4, q5, green);
-        // draw_line(q4, q6, green);
-        // draw_line(q5, q7, green);
-        // draw_line(q6, q7, green);
+        draw_square_face(p4, p5, p6, p7, green);
+        draw_square_face(p7, p6, p3, p3, blue);
+        draw_square_face(p1, p2, p6, p5, red);
 
         // Sint16 a = (Sint16)1000000000000000;
         // Sint16 b = (Sint16)1000000000000000;
@@ -203,23 +185,25 @@ void draw_origin() {
     Point p2 = {0, 10, 0};
     Point p3 = {10, 0, 0};
 
-    SDL_Color red = {255, 0, 0, 255};
-    SDL_Color yellow = {0, 255, 0, 255};
-    SDL_Color blue = {0, 0, 255, 255};
-
     draw_line(p0, p1, blue);
-    draw_line(p0, p2, yellow);
+    draw_line(p0, p2, green);
     draw_line(p0, p3, red);
+}
+
+SDL_Point dim_transform(Point p){
+    float x_2d = origin->x + p.y + (-0.5f * p.x);
+    float y_2d = origin->y - p.z + (0.5f * p.x);
+
+    SDL_Point point_2d = {x_2d, y_2d};
+    return point_2d;
 }
 
 void draw_point(Point p, SDL_Color color) {
     Point rotated = apply_camera(p);
-
-    float x_2d = origin->x + rotated.y + (-0.5f * rotated.x);
-    float y_2d = origin->y - rotated.z + (0.5f * rotated.x);
+    SDL_Point point = dim_transform(rotated);
 
     int radius = 2;
-    SDL_Rect circle_rect = {(int)x_2d - radius, (int)y_2d - radius, radius * 2, radius * 2};
+    SDL_Rect circle_rect = {(int)point.x - radius, (int)point.y - radius, radius * 2, radius * 2};
 
     SDL_SetTextureColorMod(circle_texture, color.r, color.g, color.b);
     SDL_RenderCopy(renderer, circle_texture, NULL, &circle_rect);
@@ -229,15 +213,35 @@ void draw_line(Point p1, Point p2, SDL_Color color) {
     Point rotated_p1 = apply_camera(p1);
     Point rotated_p2 = apply_camera(p2);
 
-    float x1_2d = origin->x + rotated_p1.y + (-0.5f * rotated_p1.x);
-    float y1_2d = origin->y - rotated_p1.z + (0.5f * rotated_p1.x);
-    float x2_2d = origin->x + rotated_p2.y + (-0.5f * rotated_p2.x);
-    float y2_2d = origin->y - rotated_p2.z + (0.5f * rotated_p2.x);
+    SDL_Point r1 = dim_transform(rotated_p1);
+    SDL_Point r2 = dim_transform(rotated_p2);
 
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderDrawLine(renderer, (int)x1_2d, (int)y1_2d, (int)x2_2d, (int)y2_2d);
+    SDL_RenderDrawLine(renderer, (int)r1.x, (int)r1.y, (int)r2.x, (int)r2.y);
 }
 
-// void draw_square_face(Point p1, Point p2, Point p3, Point p4, SDL_Color color) {
+void draw_square_face(Point p1, Point p2, Point p3, Point p4, SDL_Color color) {
+    Point p1_ = apply_camera(p1);
+    Point p2_ = apply_camera(p2);
+    Point p3_ = apply_camera(p3);
+    Point p4_ = apply_camera(p4);
 
-// }
+    SDL_Point r1 = dim_transform(p1_);
+    SDL_Point r2 = dim_transform(p2_);
+    SDL_Point r3 = dim_transform(p3_);
+    SDL_Point r4 = dim_transform(p4_);
+
+    int num_line = 100;
+
+    SDL_Point delta_r1_r4 = {.x = (r4.x - r1.x),
+                             .y = (r4.y - r1.y)};
+
+    for (int i = 0; i < num_line + 1; i++) {
+        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+        SDL_RenderDrawLine(renderer,
+                           (int)(r1.x + (delta_r1_r4.x * i / num_line)),
+                           (int)(r1.y + (delta_r1_r4.y * i / num_line)),
+                           (int)(r2.x + (delta_r1_r4.x * i / num_line)),
+                           (int)(r2.y + (delta_r1_r4.y * i / num_line)));
+    }
+}
