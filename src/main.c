@@ -73,7 +73,7 @@ void cleanup_sdl(void) {
     SDL_Quit();
 }
 
-Point apply_camera(Point p) {
+Vector apply_camera(Vector p) {
     p.x += camera->pos_x;
     p.y += camera->pos_y;
     p.z += camera->pos_z;
@@ -96,7 +96,7 @@ Point apply_camera(Point p) {
     float x3 = x2 * cos_z - y1 * sin_z;
     float y3 = x2 * sin_z + y1 * cos_z;
 
-    Point rotated = {(int)x3, (int)y3, (int)z2};
+    Vector rotated = {(int)x3, (int)y3, (int)z2};
     return rotated;
 }
 
@@ -139,14 +139,14 @@ int main() {
 
         draw_origin();
 
-        Point p0 = {-50, -50, -50};
-        Point p1 = {-50, -50,  50};
-        Point p2 = {-50,  50,  50};
-        Point p3 = {-50,  50, -50};
-        Point p4 = { 50, -50, -50};
-        Point p5 = { 50, -50,  50};
-        Point p6 = { 50,  50,  50};
-        Point p7 = { 50,  50, -50};
+        Vector p0 = {-50, -50, -50};
+        Vector p1 = {-50, -50,  50};
+        Vector p2 = {-50,  50,  50};
+        Vector p3 = {-50,  50, -50};
+        Vector p4 = { 50, -50, -50};
+        Vector p5 = { 50, -50,  50};
+        Vector p6 = { 50,  50,  50};
+        Vector p7 = { 50,  50, -50};
 
         draw_line(p0, p1, white);
         draw_line(p0, p3, white);
@@ -161,9 +161,9 @@ int main() {
         draw_line(p5, p6, white);
         draw_line(p6, p7, white);
 
-        draw_square_face(p4, p5, p6, p7, green);
-        draw_square_face(p7, p6, p3, p3, blue);
-        draw_square_face(p1, p2, p6, p5, red);
+        draw_square_face(p4, p5, p6, p7, red);
+        draw_square_face(p7, p6, p2, p3, blue);
+        draw_square_face(p1, p2, p6, p5, green);
 
         // Sint16 a = (Sint16)1000000000000000;
         // Sint16 b = (Sint16)1000000000000000;
@@ -180,17 +180,17 @@ int main() {
 }
 
 void draw_origin() {
-    Point p0 = {0, 0, 0};
-    Point p1 = {0, 0, 10};
-    Point p2 = {0, 10, 0};
-    Point p3 = {10, 0, 0};
+    Vector p0 = {0, 0, 0};
+    Vector p1 = {0, 0, 10};
+    Vector p2 = {0, 10, 0};
+    Vector p3 = {10, 0, 0};
 
     draw_line(p0, p1, blue);
     draw_line(p0, p2, green);
     draw_line(p0, p3, red);
 }
 
-SDL_Point dim_transform(Point p){
+SDL_Point dim_transform(Vector p){
     float x_2d = origin->x + p.y + (-0.5f * p.x);
     float y_2d = origin->y - p.z + (0.5f * p.x);
 
@@ -198,8 +198,8 @@ SDL_Point dim_transform(Point p){
     return point_2d;
 }
 
-void draw_point(Point p, SDL_Color color) {
-    Point rotated = apply_camera(p);
+void draw_point(Vector p, SDL_Color color) {
+    Vector rotated = apply_camera(p);
     SDL_Point point = dim_transform(rotated);
 
     int radius = 2;
@@ -209,9 +209,9 @@ void draw_point(Point p, SDL_Color color) {
     SDL_RenderCopy(renderer, circle_texture, NULL, &circle_rect);
 }
 
-void draw_line(Point p1, Point p2, SDL_Color color) {
-    Point rotated_p1 = apply_camera(p1);
-    Point rotated_p2 = apply_camera(p2);
+void draw_line(Vector p1, Vector p2, SDL_Color color) {
+    Vector rotated_p1 = apply_camera(p1);
+    Vector rotated_p2 = apply_camera(p2);
 
     SDL_Point r1 = dim_transform(rotated_p1);
     SDL_Point r2 = dim_transform(rotated_p2);
@@ -220,28 +220,63 @@ void draw_line(Point p1, Point p2, SDL_Color color) {
     SDL_RenderDrawLine(renderer, (int)r1.x, (int)r1.y, (int)r2.x, (int)r2.y);
 }
 
-void draw_square_face(Point p1, Point p2, Point p3, Point p4, SDL_Color color) {
-    Point p1_ = apply_camera(p1);
-    Point p2_ = apply_camera(p2);
-    Point p3_ = apply_camera(p3);
-    Point p4_ = apply_camera(p4);
+Vector subtract(Vector a, Vector b) {
+    Vector result = {a.x - b.x, a.y - b.y, a.z - b.z};
+    return result;
+}
+
+Vector normalize(Vector v) {
+    float length = sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
+    if (length == 0.0f) return (Vector){0, 0, 0};
+    return (Vector){v.x / length, v.y / length, v.z / length};
+}
+
+Vector cross(Vector a, Vector b) {
+    Vector result = {
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    };
+    return result;
+}
+
+Vector scale(Vector v, int scalar) {
+    Vector result = {
+        v.x * scalar,
+        v.y * scalar,
+        v.z * scalar,
+    };
+    return result;
+}
+
+void draw_square_face(Vector p1, Vector p2, Vector p3, Vector p4, SDL_Color color) {
+    Vector p1_ = apply_camera(p1);
+    Vector p2_ = apply_camera(p2);
+    Vector p3_ = apply_camera(p3);
+    Vector p4_ = apply_camera(p4);
 
     SDL_Point r1 = dim_transform(p1_);
     SDL_Point r2 = dim_transform(p2_);
     SDL_Point r3 = dim_transform(p3_);
     SDL_Point r4 = dim_transform(p4_);
 
-    int num_line = 100;
+    // lines
+    // int num_line = 200;
+    // SDL_Point delta_r1_r4 = {.x = (r4.x - r1.x),
+    //                          .y = (r4.y - r1.y)};
 
-    SDL_Point delta_r1_r4 = {.x = (r4.x - r1.x),
-                             .y = (r4.y - r1.y)};
+    // for (int i = 0; i < num_line + 1; i++) {
+    //     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    //     SDL_RenderDrawLine(renderer,
+    //                        (int)(r1.x + (delta_r1_r4.x * i / num_line)),
+    //                        (int)(r1.y + (delta_r1_r4.y * i / num_line)),
+    //                        (int)(r2.x + (delta_r1_r4.x * i / num_line)),
+    //                        (int)(r2.y + (delta_r1_r4.y * i / num_line)));
+    // }
 
-    for (int i = 0; i < num_line + 1; i++) {
-        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-        SDL_RenderDrawLine(renderer,
-                           (int)(r1.x + (delta_r1_r4.x * i / num_line)),
-                           (int)(r1.y + (delta_r1_r4.y * i / num_line)),
-                           (int)(r2.x + (delta_r1_r4.x * i / num_line)),
-                           (int)(r2.y + (delta_r1_r4.y * i / num_line)));
-    }
+    // filledPolygonRGBA
+    Sint16 vx[4] = {r1.x, r2.x, r3.x, r4.x};
+    Sint16 vy[4] = {r1.y, r2.y, r3.y, r4.y};
+
+    filledPolygonRGBA(renderer, vx, vy, 4, color.r, color.g, color.b, color.a);
 }
