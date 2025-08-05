@@ -10,6 +10,10 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
 
+#include "main.h"
+
+typedef struct Pyramid Pyramid;
+
 typedef struct Vector {
     int x;
     int y;
@@ -17,10 +21,6 @@ typedef struct Vector {
 } Vector;
 
 typedef struct Camera {
-    float pos_x;
-    float pos_y;
-    float pos_z;
-
     float rotation_x;
     float rotation_y;
     float rotation_z;
@@ -42,9 +42,14 @@ extern Camera *camera;
 int init_sdl(void);
 void cleanup_sdl(void);
 void draw_origin();
+void draw_gizmo();
 void draw_point(Vector p, SDL_Color color);
 void draw_line(Vector p1, Vector p2, SDL_Color color);
+
+void draw_line_moved(Vector p1, Vector p2, int x, int y, SDL_Color color);
+
 void draw_square_face(Vector p1, Vector p2, Vector p3, Vector p4,SDL_Color color);
 Vector apply_camera(Vector p);
+void draw_pyramid(Pyramid *p);
 
 #endif // RENDERER_H

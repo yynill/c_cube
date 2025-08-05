@@ -1,6 +1,5 @@
 #include "main.h"
 
-
 Pyramid *init_pyramid(double B, double H, double k) {
     Pyramid *p = malloc(sizeof(Pyramid));
     p->B = B;
@@ -75,69 +74,41 @@ void print_pyramid_properties(Pyramid *p) {
 }
 
 int main() {
-    Pyramid *x = init_pyramid(144.0, 89.0, 0.8);
-    print_pyramid_properties(x);
-    // render_pyramid(x);
+    Pyramid *p = init_pyramid(144.0, 89.0, 0.8);
+    print_pyramid_properties(p);
 
     if (!init_sdl()) return 1;
 
     int running = 1;
     SDL_Event event;
-    // const Uint8 *keyboard_state = SDL_GetKeyboardState(NULL);
+    const Uint8 *keyboard_state = SDL_GetKeyboardState(NULL);
 
     while (running) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) running = 0;
         }
 
-        // float rotation_speed = 0.05f;
-        // float move_speed = 2.0f;
+        float rotation_speed = 0.05f;
 
-        // if (keyboard_state[SDL_SCANCODE_X]) {
-        //     if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_x += rotation_speed;
-        //     if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_x -= rotation_speed;
-        // }
-        // if (keyboard_state[SDL_SCANCODE_Y]) {
-        //     if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_y += rotation_speed;
-        //     if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_y -= rotation_speed;
-        // }
-        // if (keyboard_state[SDL_SCANCODE_Z]) {
-        //     if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_z += rotation_speed;
-        //     if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_z -= rotation_speed;
-        // }
-        // if (keyboard_state[SDL_SCANCODE_W]) camera->pos_z -= move_speed;
-        // if (keyboard_state[SDL_SCANCODE_S]) camera->pos_z += move_speed;
-        // if (keyboard_state[SDL_SCANCODE_A]) camera->pos_x -= move_speed;
-        // if (keyboard_state[SDL_SCANCODE_D]) camera->pos_x += move_speed;
-        // if (keyboard_state[SDL_SCANCODE_Q]) camera->pos_y -= move_speed;
-        // if (keyboard_state[SDL_SCANCODE_E]) camera->pos_y += move_speed;
+        if (keyboard_state[SDL_SCANCODE_X]) {
+            if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_x += rotation_speed;
+            if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_x -= rotation_speed;
+        }
+        if (keyboard_state[SDL_SCANCODE_Y]) {
+            if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_y += rotation_speed;
+            if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_y -= rotation_speed;
+        }
+        if (keyboard_state[SDL_SCANCODE_Z]) {
+            if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_z += rotation_speed;
+            if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_z -= rotation_speed;
+        }
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
-        draw_origin();
-
-        // Vector p0 = {-50, -50, -50};
-        // Vector p1 = {-50, -50,  50};
-        // Vector p2 = {-50,  50,  50};
-        // Vector p3 = {-50,  50, -50};
-        // Vector p4 = { 50, -50, -50};
-        // Vector p5 = { 50, -50,  50};
-        // Vector p6 = { 50,  50,  50};
-        // Vector p7 = { 50,  50, -50};
-
-        // draw_line(p0, p1, white);
-        // draw_line(p0, p3, white);
-        // draw_line(p0, p4, white);
-        // draw_line(p1, p2, white);
-        // draw_line(p1, p5, white);
-        // draw_line(p2, p3, white);
-        // draw_line(p3, p7, white);
-        // draw_line(p2, p6, white);
-        // draw_line(p4, p5, white);
-        // draw_line(p4, p7, white);
-        // draw_line(p5, p6, white);
-        // draw_line(p6, p7, white);
+        // draw_origin();
+        draw_gizmo();
+        draw_pyramid(p);
 
         // draw_square_face(p4, p5, p6, p7, red);
         // draw_square_face(p7, p6, p2, p3, blue);

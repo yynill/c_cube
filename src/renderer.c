@@ -2,6 +2,7 @@
 
 int SCREEN_WIDTH = 1200;
 int SCREEN_HEIGHT = 800;
+int GIZMO_SIZE = 50;
 
 SDL_Color white = {255, 255, 255, 255};
 SDL_Color red   = {255, 0, 0, 255};
@@ -42,9 +43,6 @@ int init_sdl() {
     circle_texture = IMG_LoadTexture(renderer, "./assets/circle.png");
 
     camera = malloc(sizeof(Camera));
-    camera->pos_x = 0;
-    camera->pos_y = 0;
-    camera->pos_z = 0;
     camera->rotation_x = 0;
     camera->rotation_y = 0;
     camera->rotation_z = 0;
@@ -74,10 +72,6 @@ void cleanup_sdl(void) {
 }
 
 Vector apply_camera(Vector p) {
-    p.x += camera->pos_x;
-    p.y += camera->pos_y;
-    p.z += camera->pos_z;
-
     // X-axis
     float cos_x = cosf(camera->rotation_x);
     float sin_x = sinf(camera->rotation_x);
@@ -111,6 +105,20 @@ void draw_origin() {
     draw_line(p0, p3, red);
 }
 
+void draw_gizmo() {
+    Vector p0 = {0, 0, 0};
+    Vector p1 = {0, 0, GIZMO_SIZE / 2};
+    Vector p2 = {0, GIZMO_SIZE / 2, 0};
+    Vector p3 = {GIZMO_SIZE / 2, 0, 0};
+
+    int x_offset = -(SCREEN_WIDTH / 2 ) + GIZMO_SIZE;
+    int y_offset = -(SCREEN_HEIGHT / 2) + GIZMO_SIZE;
+
+    draw_line_moved(p0, p1, x_offset, y_offset, blue);
+    draw_line_moved(p0, p2, x_offset, y_offset, green);
+    draw_line_moved(p0, p3, x_offset, y_offset, red);
+}
+
 SDL_Point dim_transform(Vector p){
     float x_2d = origin->x + p.y + (-0.5f * p.x);
     float y_2d = origin->y - p.z + (0.5f * p.x);
@@ -140,6 +148,23 @@ void draw_line(Vector p1, Vector p2, SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
     SDL_RenderDrawLine(renderer, (int)r1.x, (int)r1.y, (int)r2.x, (int)r2.y);
 }
+
+void draw_line_moved(Vector p1, Vector p2, int x, int y, SDL_Color color) {
+    Vector rotated_p1 = apply_camera(p1);
+    Vector rotated_p2 = apply_camera(p2);
+
+    SDL_Point r1 = dim_transform(rotated_p1);
+    SDL_Point r2 = dim_transform(rotated_p2);
+
+    r1.x += x;
+    r2.x += x;
+    r1.y += y;
+    r2.y += y;
+
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderDrawLine(renderer, (int)r1.x, (int)r1.y, (int)r2.x, (int)r2.y);
+}
+
 
 Vector subtract(Vector a, Vector b) {
     Vector result = {a.x - b.x, a.y - b.y, a.z - b.z};
@@ -200,4 +225,41 @@ void draw_square_face(Vector p1, Vector p2, Vector p3, Vector p4, SDL_Color colo
     Sint16 vy[4] = {r1.y, r2.y, r3.y, r4.y};
 
     filledPolygonRGBA(renderer, vx, vy, 4, color.r, color.g, color.b, color.a);
+}
+
+void draw_pyramid(Pyramid *p) {
+    Vector top = {
+        .x = 0,
+        .y = 0,
+        .z = (int)p->H};
+
+    int half_B = (int)(p->B / 2);
+
+    Vector fl = {.x = half_B, .y = half_B, .z = 0};
+    Vector fr = {.x = -half_B, .y = half_B, .z = 0};
+    Vector bl = {.x = half_B, .y = -half_B, .z = 0};
+    Vector br = {.x = -half_B, .y = -half_B, .z = 0};
+
+    scale(top, camera->zoom);
+    scale(fl, camera->zoom);
+    scale(fr, camera->zoom);
+    scale(bl, camera->zoom);
+    scale(br, camera->zoom);
+
+    draw_point(top, red);
+    draw_point(fl, red);
+    draw_point(fr, red);
+    draw_point(bl, red);
+    draw_point(br, red);
+
+    draw_line(top, fl, white);
+    draw_line(top, fr, white);
+    draw_line(top, bl, white);
+    draw_line(top, br, white);
+
+    draw_line(fl, fr, white);
+    draw_line(fr, br, white);
+    draw_line(br, bl, white);
+    draw_line(bl, fl, white);
+
 }
