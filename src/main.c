@@ -74,7 +74,8 @@ void print_pyramid_properties(Pyramid *p) {
 }
 
 int main() {
-    Pyramid *p = init_pyramid(144.0, 89.0, 0.8);
+    Pyramid *p = init_pyramid(100, 100, 0.1);
+    // Pyramid *p = init_pyramid(144.0, 89.0, 0.5);
     print_pyramid_properties(p);
 
     if (!init_sdl()) return 1;
@@ -89,19 +90,23 @@ int main() {
         }
 
         float rotation_speed = 0.05f;
+        float zoom_speed = 0.01f;
 
         if (keyboard_state[SDL_SCANCODE_X]) {
-            if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_x += rotation_speed;
-            if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_x -= rotation_speed;
+            if (keyboard_state[SDL_SCANCODE_RIGHT]) camera->rotation_x += rotation_speed;
+            if (keyboard_state[SDL_SCANCODE_LEFT]) camera->rotation_x -= rotation_speed;
         }
         if (keyboard_state[SDL_SCANCODE_Y]) {
-            if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_y += rotation_speed;
-            if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_y -= rotation_speed;
+            if (keyboard_state[SDL_SCANCODE_RIGHT]) camera->rotation_y += rotation_speed;
+            if (keyboard_state[SDL_SCANCODE_LEFT]) camera->rotation_y -= rotation_speed;
         }
         if (keyboard_state[SDL_SCANCODE_Z]) {
-            if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_z += rotation_speed;
-            if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_z -= rotation_speed;
+            if (keyboard_state[SDL_SCANCODE_RIGHT]) camera->rotation_z += rotation_speed;
+            if (keyboard_state[SDL_SCANCODE_LEFT]) camera->rotation_z -= rotation_speed;
         }
+        if (keyboard_state[SDL_SCANCODE_UP]) camera->zoom += zoom_speed;
+        if (keyboard_state[SDL_SCANCODE_DOWN]) camera->zoom -= zoom_speed;
+        if (camera->zoom <= 0) camera->zoom = 0;
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
@@ -109,10 +114,6 @@ int main() {
         // draw_origin();
         draw_gizmo();
         draw_pyramid(p);
-
-        // draw_square_face(p4, p5, p6, p7, red);
-        // draw_square_face(p7, p6, p2, p3, blue);
-        // draw_square_face(p1, p2, p6, p5, green);
 
         SDL_RenderPresent(renderer);
         SDL_Delay(16);

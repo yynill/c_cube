@@ -2,7 +2,7 @@
 
 int SCREEN_WIDTH = 1200;
 int SCREEN_HEIGHT = 800;
-int GIZMO_SIZE = 50;
+int GIZMO_SIZE = 10;
 
 SDL_Color white = {255, 255, 255, 255};
 SDL_Color red   = {255, 0, 0, 255};
@@ -107,12 +107,12 @@ void draw_origin() {
 
 void draw_gizmo() {
     Vector p0 = {0, 0, 0};
-    Vector p1 = {0, 0, GIZMO_SIZE / 2};
-    Vector p2 = {0, GIZMO_SIZE / 2, 0};
-    Vector p3 = {GIZMO_SIZE / 2, 0, 0};
+    Vector p1 = {0, 0, GIZMO_SIZE};
+    Vector p2 = {0, GIZMO_SIZE, 0};
+    Vector p3 = {GIZMO_SIZE, 0, 0};
 
-    int x_offset = -(SCREEN_WIDTH / 2 ) + GIZMO_SIZE;
-    int y_offset = -(SCREEN_HEIGHT / 2) + GIZMO_SIZE;
+    int x_offset = -(SCREEN_WIDTH / 2) + 5 * GIZMO_SIZE;
+    int y_offset = -(SCREEN_HEIGHT / 2) + 5 * GIZMO_SIZE;
 
     draw_line_moved(p0, p1, x_offset, y_offset, blue);
     draw_line_moved(p0, p2, x_offset, y_offset, green);
@@ -129,11 +129,10 @@ SDL_Point dim_transform(Vector p){
 
 void draw_point(Vector p, SDL_Color color) {
     Vector rotated = apply_camera(p);
-    SDL_Point point = dim_transform(rotated);
-
+    Vector scaled = scale(rotated, camera->zoom);
+    SDL_Point point = dim_transform(scaled);
     int radius = 2;
     SDL_Rect circle_rect = {(int)point.x - radius, (int)point.y - radius, radius * 2, radius * 2};
-
     SDL_SetTextureColorMod(circle_texture, color.r, color.g, color.b);
     SDL_RenderCopy(renderer, circle_texture, NULL, &circle_rect);
 }
@@ -142,8 +141,11 @@ void draw_line(Vector p1, Vector p2, SDL_Color color) {
     Vector rotated_p1 = apply_camera(p1);
     Vector rotated_p2 = apply_camera(p2);
 
-    SDL_Point r1 = dim_transform(rotated_p1);
-    SDL_Point r2 = dim_transform(rotated_p2);
+    Vector scaled_p1 = scale(rotated_p1, camera->zoom);
+    Vector scaled_p2 = scale(rotated_p2, camera->zoom);
+
+    SDL_Point r1 = dim_transform(scaled_p1);
+    SDL_Point r2 = dim_transform(scaled_p2);
 
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
     SDL_RenderDrawLine(renderer, (int)r1.x, (int)r1.y, (int)r2.x, (int)r2.y);
@@ -153,8 +155,11 @@ void draw_line_moved(Vector p1, Vector p2, int x, int y, SDL_Color color) {
     Vector rotated_p1 = apply_camera(p1);
     Vector rotated_p2 = apply_camera(p2);
 
-    SDL_Point r1 = dim_transform(rotated_p1);
-    SDL_Point r2 = dim_transform(rotated_p2);
+    Vector scaled_p1 = scale(rotated_p1, camera->zoom);
+    Vector scaled_p2 = scale(rotated_p2, camera->zoom);
+
+    SDL_Point r1 = dim_transform(scaled_p1);
+    SDL_Point r2 = dim_transform(scaled_p2);
 
     r1.x += x;
     r2.x += x;
@@ -186,7 +191,7 @@ Vector cross(Vector a, Vector b) {
     return result;
 }
 
-Vector scale(Vector v, int scalar) {
+Vector scale(Vector v, double scalar) {
     Vector result = {
         v.x * scalar,
         v.y * scalar,
@@ -206,21 +211,6 @@ void draw_square_face(Vector p1, Vector p2, Vector p3, Vector p4, SDL_Color colo
     SDL_Point r3 = dim_transform(p3_);
     SDL_Point r4 = dim_transform(p4_);
 
-    // lines
-    // int num_line = 200;
-    // SDL_Point delta_r1_r4 = {.x = (r4.x - r1.x),
-    //                          .y = (r4.y - r1.y)};
-
-    // for (int i = 0; i < num_line + 1; i++) {
-    //     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    //     SDL_RenderDrawLine(renderer,
-    //                        (int)(r1.x + (delta_r1_r4.x * i / num_line)),
-    //                        (int)(r1.y + (delta_r1_r4.y * i / num_line)),
-    //                        (int)(r2.x + (delta_r1_r4.x * i / num_line)),
-    //                        (int)(r2.y + (delta_r1_r4.y * i / num_line)));
-    // }
-
-    // filledPolygonRGBA
     Sint16 vx[4] = {r1.x, r2.x, r3.x, r4.x};
     Sint16 vy[4] = {r1.y, r2.y, r3.y, r4.y};
 
@@ -231,14 +221,26 @@ void draw_pyramid(Pyramid *p) {
     Vector top = {
         .x = 0,
         .y = 0,
-        .z = (int)p->H};
+        .z = (int)p->H
+    };
 
     int half_B = (int)(p->B / 2);
+    Vector fl = {.x = half_B, .y = half_B, .z = 0};  // Front-left
+    Vector fr = {.x = -half_B, .y = half_B, .z = 0}; // Front-right
+    Vector bl = {.x = half_B, .y = -half_B, .z = 0}; // Back-left
+    Vector br = {.x = -half_B, .y = -half_B, .z = 0}; // Back-right
 
-    Vector fl = {.x = half_B, .y = half_B, .z = 0};
-    Vector fr = {.x = -half_B, .y = half_B, .z = 0};
-    Vector bl = {.x = half_B, .y = -half_B, .z = 0};
-    Vector br = {.x = -half_B, .y = -half_B, .z = 0};
+    Vector inner_top = {
+        .x = 0,
+        .y = 0,
+        .z = (int)p->h
+    };
+
+    int half_b = (int)(p->b / 2);
+    Vector inner_fl = {.x = half_b, .y = half_b, .z = 0};  // Inner front-left
+    Vector inner_fr = {.x = -half_b, .y = half_b, .z = 0}; // Inner front-right
+    Vector inner_bl = {.x = half_b, .y = -half_b, .z = 0}; // Inner back-left
+    Vector inner_br = {.x = -half_b, .y = -half_b, .z = 0}; // Inner back-right
 
     scale(top, camera->zoom);
     scale(fl, camera->zoom);
@@ -246,20 +248,39 @@ void draw_pyramid(Pyramid *p) {
     scale(bl, camera->zoom);
     scale(br, camera->zoom);
 
+    scale(inner_top, camera->zoom);
+    scale(inner_fl, camera->zoom);
+    scale(inner_fr, camera->zoom);
+    scale(inner_bl, camera->zoom);
+    scale(inner_br, camera->zoom);
+
     draw_point(top, red);
     draw_point(fl, red);
     draw_point(fr, red);
     draw_point(bl, red);
     draw_point(br, red);
 
+    draw_point(inner_top, blue);
+    draw_point(inner_fl, blue);
+    draw_point(inner_fr, blue);
+    draw_point(inner_bl, blue);
+    draw_point(inner_br, blue);
+
     draw_line(top, fl, white);
     draw_line(top, fr, white);
     draw_line(top, bl, white);
     draw_line(top, br, white);
-
     draw_line(fl, fr, white);
     draw_line(fr, br, white);
     draw_line(br, bl, white);
     draw_line(bl, fl, white);
 
+    draw_line(inner_top, inner_fl, green);
+    draw_line(inner_top, inner_fr, green);
+    draw_line(inner_top, inner_bl, green);
+    draw_line(inner_top, inner_br, green);
+    draw_line(inner_fl, inner_fr, green);
+    draw_line(inner_fr, inner_br, green);
+    draw_line(inner_br, inner_bl, green);
+    draw_line(inner_bl, inner_fl, green);
 }

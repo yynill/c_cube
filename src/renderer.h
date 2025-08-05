@@ -15,9 +15,9 @@
 typedef struct Pyramid Pyramid;
 
 typedef struct Vector {
-    int x;
-    int y;
-    int z;
+    float x;
+    float y;
+    float z;
 } Vector;
 
 typedef struct Camera {
@@ -38,6 +38,11 @@ extern SDL_Renderer *renderer;
 extern SDL_Point *origin;
 extern SDL_Texture *circle_texture;
 extern Camera *camera;
+
+Vector subtract(Vector a, Vector b);
+Vector normalize(Vector v);
+Vector cross(Vector a, Vector b);
+Vector scale(Vector v, double scalar);
 
 int init_sdl(void);
 void cleanup_sdl(void);
