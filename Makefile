@@ -16,7 +16,8 @@ CFLAGS = -Wall -Wextra -g \
 LDFLAGS = -L/opt/homebrew/opt/sdl2/lib -L/opt/homebrew/opt/sdl2_ttf/lib -L/opt/homebrew/opt/sdl2_image/lib -L/opt/homebrew/opt/sdl2_gfx/lib -lSDL2_ttf -lSDL2 -lSDL2_image -lSDL2_gfx
 
 # Main program configuration
-MAIN_SRC = src/main.c
+MAIN_SRC = src/main.c \
+		   src/renderer.c
 
 
 MAIN_OBJ = $(MAIN_SRC:.c=.o)

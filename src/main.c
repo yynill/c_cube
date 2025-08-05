@@ -1,175 +1,147 @@
 #include "main.h"
 
-int SCREEN_WIDTH = 1200;
-int SCREEN_HEIGHT = 800;
 
-SDL_Window *window = NULL;
-SDL_Renderer *renderer = NULL;
-SDL_Point *origin = NULL;
-SDL_Texture *circle_texture = NULL;
-Camera *camera = NULL;
+Pyramid *init_pyramid(double B, double H, double k) {
+    Pyramid *p = malloc(sizeof(Pyramid));
+    p->B = B;
+    p->H = H;
+    p->k = k;
 
-SDL_Color white = {255, 255, 255, 255};
-SDL_Color red = {255, 0, 0, 255};
-SDL_Color blue = {0, 0, 255, 255};
-SDL_Color green = {0, 255, 0, 255};
+    p->b = p->k * p->B;
+    p->h = p->k * p->H;
 
-int init_sdl() {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
-        fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
-        return 0;
-    }
+    p->t = (p->B - p->b) / 2.0;
+    p->t_percent = (p->t / p->B) * 100.0;
+    p->V_total = (1.0 / 3.0) * p->B * p->B * p->H;
+    p->V_hollow = p->k * p->k * p->V_total;
+    p->V_stone = p->V_total - p->V_hollow;
+    p->hollow_volume_percent = p->V_hollow / p->V_total * 100;
+    p->stone_volume_percent = p->V_stone / p->V_total * 100;
+    p->slope_angle_face = DEG_PER_RAD * atan(2.0 * H / B);
+    p->slope_angle_edge = DEG_PER_RAD * atan((2.0 * H) / (B * SQRT_2));
+    p->d_outer = p->B * SQRT_2;
+    p->d_inner = p->b * SQRT_2;
+    p->s_outer = sqrt(p->H * p->H + (p->B / 2.0) * (p->B / 2.0));
+    p->s_inner = p->k * p->s_outer;
+    p->l_outer = sqrt(p->H * p->H + (p->B * p->B / 2.0));
+    p->l_inner = p->k * p->l_outer;
+    p->A_inner = p->b * p->b;
+    p->A_outer = p->B * p->B;
 
-    window = SDL_CreateWindow("SDL Game Loop", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, 0);
-    if (!window) {
-        fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
-        SDL_Quit();
-        return 0;
-    }
-
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    if (!renderer) {
-        fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 0;
-    }
-
-    origin = malloc(sizeof(SDL_Point));
-    origin->x = SCREEN_WIDTH / 2;
-    origin->y = SCREEN_HEIGHT / 2;
-
-    circle_texture = IMG_LoadTexture(renderer, "./assets/circle.png");
-
-    camera = malloc(sizeof(Camera));
-    camera->pos_x = 0;
-    camera->pos_y = 0;
-    camera->pos_z = 0;
-    camera->rotation_x = 0;
-    camera->rotation_y = 0;
-    camera->rotation_z = 0;
-    camera->zoom = 1;
-
-    return 1;
+    return p;
 }
 
-void cleanup_sdl(void) {
-    if (circle_texture) {
-        SDL_DestroyTexture(circle_texture);
-        circle_texture = NULL;
-    }
-    if (origin) {
-        free(origin);
-        origin = NULL;
-    }
-    if (renderer) {
-        SDL_DestroyRenderer(renderer);
-        renderer = NULL;
-    }
-    if (window) {
-        SDL_DestroyWindow(window);
-        window = NULL;
-    }
-    SDL_Quit();
-}
+void print_pyramid_properties(Pyramid *p) {
+    printf("\n%s=== Pyramid Properties ===%s\n", COLOR_HEADER, COLOR_RESET);
 
-Vector apply_camera(Vector p) {
-    p.x += camera->pos_x;
-    p.y += camera->pos_y;
-    p.z += camera->pos_z;
+    // INPUTS
+    printf("\n%s[INPUT PARAMETERS]%s\n", COLOR_SECTION, COLOR_RESET);
+    printf("%s  %-35s%s %.1f%s\n", COLOR_LABEL, "Outer Base Length (B, m):", COLOR_VALUE, p->B, COLOR_RESET);
+    printf("%s  %-35s%s %.1f%s\n", COLOR_LABEL, "Outer Height (H, m):", COLOR_VALUE, p->H, COLOR_RESET);
+    printf("%s  %-35s%s %.3f%s\n", COLOR_LABEL, "Scaling Factor (k):", COLOR_VALUE, p->k, COLOR_RESET);
 
-    // X-axis
-    float cos_x = cosf(camera->rotation_x);
-    float sin_x = sinf(camera->rotation_x);
-    float y1 = p.y * cos_x - p.z * sin_x;
-    float z1 = p.y * sin_x + p.z * cos_x;
+    // THICKNESS & INTERNAL SIZE
+    printf("\n%s[WALL THICKNESS & INNER PYRAMID]%s\n", COLOR_SECTION, COLOR_RESET);
+    printf("%s  %-35s%s %.1f%s\n", COLOR_LABEL, "Wall Thickness (t, m):", COLOR_VALUE, p->t, COLOR_RESET);
+    printf("%s  %-35s%s %.1f%%%s\n", COLOR_LABEL, "Wall Thickness %% of Base:", COLOR_VALUE, p->t_percent, COLOR_RESET);
+    printf("%s  %-35s%s %.1f%s\n", COLOR_LABEL, "Inner Base Length (b, m):", COLOR_VALUE, p->b, COLOR_RESET);
+    printf("%s  %-35s%s %.1f%s\n", COLOR_LABEL, "Inner Height (h, m):", COLOR_VALUE, p->h, COLOR_RESET);
 
-    // Y-axis
-    float cos_y = cosf(camera->rotation_y);
-    float sin_y = sinf(camera->rotation_y);
-    float x2 = p.x * cos_y + z1 * sin_y;
-    float z2 = -p.x * sin_y + z1 * cos_y;
+    // GEOMETRY
+    printf("\n%s[GEOMETRIC DIMENSIONS]%s\n", COLOR_SECTION, COLOR_RESET);
+    printf("%s  %-35s%s %.1f%s\n", COLOR_LABEL, "Outer Base Diagonal (m):", COLOR_VALUE, p->d_outer, COLOR_RESET);
+    printf("%s  %-35s%s %.1f%s\n", COLOR_LABEL, "Inner Base Diagonal (m):", COLOR_VALUE, p->d_inner, COLOR_RESET);
+    printf("%s  %-35s%s %.1f%s\n", COLOR_LABEL, "Outer Slant Height (m):", COLOR_VALUE, p->s_outer, COLOR_RESET);
+    printf("%s  %-35s%s %.1f%s\n", COLOR_LABEL, "Inner Slant Height (m):", COLOR_VALUE, p->s_inner, COLOR_RESET);
+    printf("%s  %-35s%s %.1f%s\n", COLOR_LABEL, "Outer Edge Length (m):", COLOR_VALUE, p->l_outer, COLOR_RESET);
+    printf("%s  %-35s%s %.1f%s\n", COLOR_LABEL, "Inner Edge Length (m):", COLOR_VALUE, p->l_inner, COLOR_RESET);
+    printf("%s  %-36s%s %.0f%s\n", COLOR_LABEL, "Outer Surface Area (m²):", COLOR_VALUE, p->A_outer, COLOR_RESET);
+    printf("%s  %-36s%s %.0f%s\n", COLOR_LABEL, "Inner Surface Area (m²):", COLOR_VALUE, p->A_inner, COLOR_RESET);
 
-    // Z-axis
-    float cos_z = cosf(camera->rotation_z);
-    float sin_z = sinf(camera->rotation_z);
-    float x3 = x2 * cos_z - y1 * sin_z;
-    float y3 = x2 * sin_z + y1 * cos_z;
+    // VOLUMES
+    printf("\n%s[VOLUMETRIC DATA]%s\n", COLOR_SECTION, COLOR_RESET);
+    printf("%s  %-36s%s %.1f%s\n", COLOR_LABEL, "Total Volume (m³):", COLOR_VALUE, p->V_total, COLOR_RESET);
+    printf("%s  %-36s%s %.1f%s\n", COLOR_LABEL, "Hollow Volume (m³):", COLOR_VALUE, p->V_hollow, COLOR_RESET);
+    printf("%s  %-36s%s %.0f%s\n", COLOR_LABEL, "Stone Volume (m³):", COLOR_VALUE, p->V_stone, COLOR_RESET);
+    printf("%s  %-35s%s %.1f%%%s\n", COLOR_LABEL, "Hollow Volume %%:", COLOR_VALUE, p->hollow_volume_percent, COLOR_RESET);
+    printf("%s  %-35s%s %.1f%%%s\n", COLOR_LABEL, "Stone Volume %%:", COLOR_VALUE, p->stone_volume_percent, COLOR_RESET);
 
-    Vector rotated = {(int)x3, (int)y3, (int)z2};
-    return rotated;
+    // SLOPES
+    printf("\n%s[SLOPES]%s\n", COLOR_SECTION, COLOR_RESET);
+    printf("%s  %-36s%s %.1f%s\n", COLOR_LABEL, "Face Slope Angle (°):", COLOR_VALUE, p->slope_angle_face, COLOR_RESET);
+    printf("%s  %-36s%s %.1f%s\n", COLOR_LABEL, "Edge Slope Angle (°):", COLOR_VALUE, p->slope_angle_edge, COLOR_RESET);
+
+    printf("\n");
 }
 
 int main() {
+    Pyramid *x = init_pyramid(144.0, 89.0, 0.8);
+    print_pyramid_properties(x);
+    // render_pyramid(x);
+
     if (!init_sdl()) return 1;
 
     int running = 1;
     SDL_Event event;
-    const Uint8 *keyboard_state = SDL_GetKeyboardState(NULL);
+    // const Uint8 *keyboard_state = SDL_GetKeyboardState(NULL);
 
     while (running) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) running = 0;
         }
 
-        float rotation_speed = 0.05f;
-        float move_speed = 2.0f;
+        // float rotation_speed = 0.05f;
+        // float move_speed = 2.0f;
 
-        if (keyboard_state[SDL_SCANCODE_X]) {
-            if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_x += rotation_speed;
-            if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_x -= rotation_speed;
-        }
-        if (keyboard_state[SDL_SCANCODE_Y]) {
-            if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_y += rotation_speed;
-            if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_y -= rotation_speed;
-        }
-        if (keyboard_state[SDL_SCANCODE_Z]) {
-            if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_z += rotation_speed;
-            if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_z -= rotation_speed;
-        }
-        if (keyboard_state[SDL_SCANCODE_W]) camera->pos_z -= move_speed;
-        if (keyboard_state[SDL_SCANCODE_S]) camera->pos_z += move_speed;
-        if (keyboard_state[SDL_SCANCODE_A]) camera->pos_x -= move_speed;
-        if (keyboard_state[SDL_SCANCODE_D]) camera->pos_x += move_speed;
-        if (keyboard_state[SDL_SCANCODE_Q]) camera->pos_y -= move_speed;
-        if (keyboard_state[SDL_SCANCODE_E]) camera->pos_y += move_speed;
+        // if (keyboard_state[SDL_SCANCODE_X]) {
+        //     if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_x += rotation_speed;
+        //     if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_x -= rotation_speed;
+        // }
+        // if (keyboard_state[SDL_SCANCODE_Y]) {
+        //     if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_y += rotation_speed;
+        //     if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_y -= rotation_speed;
+        // }
+        // if (keyboard_state[SDL_SCANCODE_Z]) {
+        //     if (keyboard_state[SDL_SCANCODE_UP]) camera->rotation_z += rotation_speed;
+        //     if (keyboard_state[SDL_SCANCODE_DOWN]) camera->rotation_z -= rotation_speed;
+        // }
+        // if (keyboard_state[SDL_SCANCODE_W]) camera->pos_z -= move_speed;
+        // if (keyboard_state[SDL_SCANCODE_S]) camera->pos_z += move_speed;
+        // if (keyboard_state[SDL_SCANCODE_A]) camera->pos_x -= move_speed;
+        // if (keyboard_state[SDL_SCANCODE_D]) camera->pos_x += move_speed;
+        // if (keyboard_state[SDL_SCANCODE_Q]) camera->pos_y -= move_speed;
+        // if (keyboard_state[SDL_SCANCODE_E]) camera->pos_y += move_speed;
 
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
         draw_origin();
 
-        Vector p0 = {-50, -50, -50};
-        Vector p1 = {-50, -50,  50};
-        Vector p2 = {-50,  50,  50};
-        Vector p3 = {-50,  50, -50};
-        Vector p4 = { 50, -50, -50};
-        Vector p5 = { 50, -50,  50};
-        Vector p6 = { 50,  50,  50};
-        Vector p7 = { 50,  50, -50};
+        // Vector p0 = {-50, -50, -50};
+        // Vector p1 = {-50, -50,  50};
+        // Vector p2 = {-50,  50,  50};
+        // Vector p3 = {-50,  50, -50};
+        // Vector p4 = { 50, -50, -50};
+        // Vector p5 = { 50, -50,  50};
+        // Vector p6 = { 50,  50,  50};
+        // Vector p7 = { 50,  50, -50};
 
-        draw_line(p0, p1, white);
-        draw_line(p0, p3, white);
-        draw_line(p0, p4, white);
-        draw_line(p1, p2, white);
-        draw_line(p1, p5, white);
-        draw_line(p2, p3, white);
-        draw_line(p3, p7, white);
-        draw_line(p2, p6, white);
-        draw_line(p4, p5, white);
-        draw_line(p4, p7, white);
-        draw_line(p5, p6, white);
-        draw_line(p6, p7, white);
+        // draw_line(p0, p1, white);
+        // draw_line(p0, p3, white);
+        // draw_line(p0, p4, white);
+        // draw_line(p1, p2, white);
+        // draw_line(p1, p5, white);
+        // draw_line(p2, p3, white);
+        // draw_line(p3, p7, white);
+        // draw_line(p2, p6, white);
+        // draw_line(p4, p5, white);
+        // draw_line(p4, p7, white);
+        // draw_line(p5, p6, white);
+        // draw_line(p6, p7, white);
 
-        draw_square_face(p4, p5, p6, p7, red);
-        draw_square_face(p7, p6, p2, p3, blue);
-        draw_square_face(p1, p2, p6, p5, green);
-
-        // Sint16 a = (Sint16)1000000000000000;
-        // Sint16 b = (Sint16)1000000000000000;
-
-        // SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-        // filledPolygonRGBA(renderer, &a, &b, 1000, 255, 255, 255, 255);
+        // draw_square_face(p4, p5, p6, p7, red);
+        // draw_square_face(p7, p6, p2, p3, blue);
+        // draw_square_face(p1, p2, p6, p5, green);
 
         SDL_RenderPresent(renderer);
         SDL_Delay(16);
@@ -177,106 +149,4 @@ int main() {
 
     cleanup_sdl();
     return 0;
-}
-
-void draw_origin() {
-    Vector p0 = {0, 0, 0};
-    Vector p1 = {0, 0, 10};
-    Vector p2 = {0, 10, 0};
-    Vector p3 = {10, 0, 0};
-
-    draw_line(p0, p1, blue);
-    draw_line(p0, p2, green);
-    draw_line(p0, p3, red);
-}
-
-SDL_Point dim_transform(Vector p){
-    float x_2d = origin->x + p.y + (-0.5f * p.x);
-    float y_2d = origin->y - p.z + (0.5f * p.x);
-
-    SDL_Point point_2d = {x_2d, y_2d};
-    return point_2d;
-}
-
-void draw_point(Vector p, SDL_Color color) {
-    Vector rotated = apply_camera(p);
-    SDL_Point point = dim_transform(rotated);
-
-    int radius = 2;
-    SDL_Rect circle_rect = {(int)point.x - radius, (int)point.y - radius, radius * 2, radius * 2};
-
-    SDL_SetTextureColorMod(circle_texture, color.r, color.g, color.b);
-    SDL_RenderCopy(renderer, circle_texture, NULL, &circle_rect);
-}
-
-void draw_line(Vector p1, Vector p2, SDL_Color color) {
-    Vector rotated_p1 = apply_camera(p1);
-    Vector rotated_p2 = apply_camera(p2);
-
-    SDL_Point r1 = dim_transform(rotated_p1);
-    SDL_Point r2 = dim_transform(rotated_p2);
-
-    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    SDL_RenderDrawLine(renderer, (int)r1.x, (int)r1.y, (int)r2.x, (int)r2.y);
-}
-
-Vector subtract(Vector a, Vector b) {
-    Vector result = {a.x - b.x, a.y - b.y, a.z - b.z};
-    return result;
-}
-
-Vector normalize(Vector v) {
-    float length = sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
-    if (length == 0.0f) return (Vector){0, 0, 0};
-    return (Vector){v.x / length, v.y / length, v.z / length};
-}
-
-Vector cross(Vector a, Vector b) {
-    Vector result = {
-        a.y * b.z - a.z * b.y,
-        a.z * b.x - a.x * b.z,
-        a.x * b.y - a.y * b.x
-    };
-    return result;
-}
-
-Vector scale(Vector v, int scalar) {
-    Vector result = {
-        v.x * scalar,
-        v.y * scalar,
-        v.z * scalar,
-    };
-    return result;
-}
-
-void draw_square_face(Vector p1, Vector p2, Vector p3, Vector p4, SDL_Color color) {
-    Vector p1_ = apply_camera(p1);
-    Vector p2_ = apply_camera(p2);
-    Vector p3_ = apply_camera(p3);
-    Vector p4_ = apply_camera(p4);
-
-    SDL_Point r1 = dim_transform(p1_);
-    SDL_Point r2 = dim_transform(p2_);
-    SDL_Point r3 = dim_transform(p3_);
-    SDL_Point r4 = dim_transform(p4_);
-
-    // lines
-    // int num_line = 200;
-    // SDL_Point delta_r1_r4 = {.x = (r4.x - r1.x),
-    //                          .y = (r4.y - r1.y)};
-
-    // for (int i = 0; i < num_line + 1; i++) {
-    //     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-    //     SDL_RenderDrawLine(renderer,
-    //                        (int)(r1.x + (delta_r1_r4.x * i / num_line)),
-    //                        (int)(r1.y + (delta_r1_r4.y * i / num_line)),
-    //                        (int)(r2.x + (delta_r1_r4.x * i / num_line)),
-    //                        (int)(r2.y + (delta_r1_r4.y * i / num_line)));
-    // }
-
-    // filledPolygonRGBA
-    Sint16 vx[4] = {r1.x, r2.x, r3.x, r4.x};
-    Sint16 vy[4] = {r1.y, r2.y, r3.y, r4.y};
-
-    filledPolygonRGBA(renderer, vx, vy, 4, color.r, color.g, color.b, color.a);
 }
