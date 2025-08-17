@@ -13,11 +13,17 @@ SDL_Window *window = NULL;
 SDL_Renderer *renderer = NULL;
 SDL_Point *origin = NULL;
 SDL_Texture *circle_texture = NULL;
+TTF_Font *font = NULL;
 Camera *camera = NULL;
 
 int init_sdl() {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
+        return 0;
+    }
+
+    if (TTF_Init() < 0) {
+        fprintf(stderr, "TTF_Init failed: %s\n", TTF_GetError());
         return 0;
     }
 
@@ -48,10 +54,16 @@ int init_sdl() {
     camera->rotation_z = 0;
     camera->zoom = 1;
 
+    font = TTF_OpenFont("/System/Library/Fonts/Helvetica.ttc", 16);
+
     return 1;
 }
 
 void cleanup_sdl(void) {
+    if (font) {
+        TTF_CloseFont(font);
+        font = NULL;
+    }
     if (circle_texture) {
         SDL_DestroyTexture(circle_texture);
         circle_texture = NULL;
@@ -68,6 +80,7 @@ void cleanup_sdl(void) {
         SDL_DestroyWindow(window);
         window = NULL;
     }
+    TTF_Quit();
     SDL_Quit();
 }
 
@@ -91,7 +104,9 @@ Vector apply_camera(Vector p) {
     float y3 = x2 * sin_z + y1 * cos_z;
 
     Vector rotated = {(int)x3, (int)y3, (int)z2};
-    return rotated;
+    Vector scaled = scale(rotated, camera->zoom);
+
+    return scaled;
 }
 
 void draw_origin() {
@@ -128,8 +143,7 @@ SDL_Point dim_transform(Vector p){
 }
 
 void draw_point(Vector p, SDL_Color color) {
-    Vector rotated = apply_camera(p);
-    Vector scaled = scale(rotated, camera->zoom);
+    Vector scaled = apply_camera(p);
     SDL_Point point = dim_transform(scaled);
     int radius = 2;
     SDL_Rect circle_rect = {(int)point.x - radius, (int)point.y - radius, radius * 2, radius * 2};
@@ -138,11 +152,8 @@ void draw_point(Vector p, SDL_Color color) {
 }
 
 void draw_line(Vector p1, Vector p2, SDL_Color color) {
-    Vector rotated_p1 = apply_camera(p1);
-    Vector rotated_p2 = apply_camera(p2);
-
-    Vector scaled_p1 = scale(rotated_p1, camera->zoom);
-    Vector scaled_p2 = scale(rotated_p2, camera->zoom);
+    Vector scaled_p1 = apply_camera(p1);
+    Vector scaled_p2 = apply_camera(p2);
 
     SDL_Point r1 = dim_transform(scaled_p1);
     SDL_Point r2 = dim_transform(scaled_p2);
@@ -152,11 +163,8 @@ void draw_line(Vector p1, Vector p2, SDL_Color color) {
 }
 
 void draw_line_moved(Vector p1, Vector p2, int x, int y, SDL_Color color) {
-    Vector rotated_p1 = apply_camera(p1);
-    Vector rotated_p2 = apply_camera(p2);
-
-    Vector scaled_p1 = scale(rotated_p1, camera->zoom);
-    Vector scaled_p2 = scale(rotated_p2, camera->zoom);
+    Vector scaled_p1 = apply_camera(p1);
+    Vector scaled_p2 = apply_camera(p2);
 
     SDL_Point r1 = dim_transform(scaled_p1);
     SDL_Point r2 = dim_transform(scaled_p2);
@@ -242,18 +250,6 @@ void draw_pyramid(Pyramid *p) {
     Vector inner_bl = {.x = half_b, .y = -half_b, .z = 0}; // Inner back-left
     Vector inner_br = {.x = -half_b, .y = -half_b, .z = 0}; // Inner back-right
 
-    scale(top, camera->zoom);
-    scale(fl, camera->zoom);
-    scale(fr, camera->zoom);
-    scale(bl, camera->zoom);
-    scale(br, camera->zoom);
-
-    scale(inner_top, camera->zoom);
-    scale(inner_fl, camera->zoom);
-    scale(inner_fr, camera->zoom);
-    scale(inner_bl, camera->zoom);
-    scale(inner_br, camera->zoom);
-
     draw_point(top, red);
     draw_point(fl, red);
     draw_point(fr, red);
@@ -283,4 +279,259 @@ void draw_pyramid(Pyramid *p) {
     draw_line(inner_fr, inner_br, green);
     draw_line(inner_br, inner_bl, green);
     draw_line(inner_bl, inner_fl, green);
+}
+
+void draw_pyramid_cross_section(Pyramid *p) {
+    SDL_Point top = {0 + SCREEN_WIDTH / 2, -(int)(p->H/2) * camera->zoom + SCREEN_HEIGHT / 2};
+    SDL_Point left_base = {(int)((p->B / 2) * camera->zoom) + SCREEN_WIDTH / 2, (int)(p->H / 2) * camera->zoom + SCREEN_HEIGHT / 2};
+    SDL_Point right_base = {-(int)((p->B / 2) * camera->zoom) + SCREEN_WIDTH / 2, (int)(p->H / 2) * camera->zoom + SCREEN_HEIGHT / 2};
+
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderDrawLine(renderer, top.x, top.y, left_base.x, left_base.y);
+    SDL_RenderDrawLine(renderer, top.x, top.y, right_base.x, right_base.y);
+    SDL_RenderDrawLine(renderer, left_base.x, left_base.y, right_base.x, right_base.y);
+
+    SDL_Point inner_top = {0 + SCREEN_WIDTH / 2, left_base.y - (int)(p->h * camera->zoom)};
+    SDL_Point inner_left_base = {(int)((p->b / 2) * camera->zoom) + SCREEN_WIDTH / 2, left_base.y};
+    SDL_Point inner_right_base = {-(int)((p->b / 2) * camera->zoom) + SCREEN_WIDTH / 2, right_base.y};
+
+    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+    SDL_RenderDrawLine(renderer, inner_top.x, inner_top.y, inner_left_base.x, inner_left_base.y);
+    SDL_RenderDrawLine(renderer, inner_top.x, inner_top.y, inner_right_base.x, inner_right_base.y);
+    SDL_RenderDrawLine(renderer, inner_left_base.x, inner_left_base.y, inner_right_base.x, inner_right_base.y);
+
+    SDL_Color outer_color = {255, 255, 255, 255};
+    SDL_Color inner_color = {0, 255, 0, 255};
+    SDL_Color thickness_color = {255, 255, 0, 255};
+    char label[50];
+
+    sprintf(label, "H=%.1fm", p->H);
+    draw_height_line(left_base.x + 100, top.y, left_base.y, label, outer_color);
+
+    sprintf(label, "h=%.1fm", p->h);
+    draw_height_line(left_base.x + 50, inner_top.y, inner_left_base.y, label, inner_color);
+
+    sprintf(label, "B=%.1fm", p->B);
+    draw_width_line(left_base.y + 40, left_base.x, right_base.x, label, outer_color);
+
+    sprintf(label, "b=%.1fm", p->b);
+    draw_width_line(left_base.y + 70, inner_left_base.x, inner_right_base.x, label, inner_color);
+
+    sprintf(label, "t=%.1fm", p->t);
+    draw_width_line(left_base.y + 70, inner_left_base.x, left_base.x, label, thickness_color);
+
+    render_stats(p);
+}
+
+void render_stats(Pyramid *p) {
+    SDL_Color header_color = {0, 255, 255, 255};    // Cyan for headers
+    SDL_Color label_color = {255, 255, 255, 255};   // White for labels
+    SDL_Color value_color = {255, 255, 0, 255};     // Yellow for values
+
+    char stats_text[200];
+    int text_x = 20;
+    int text_y = 20;
+    int line_height = 22;
+    int indent = 15;
+
+    // INPUT PARAMETERS
+    sprintf(stats_text, "INPUT PARAMETERS");
+    render_text(stats_text, text_x, text_y, header_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Outer Base Length (B, m):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->B);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Outer Height (H, m):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->H);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Scaling Factor (k):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.3f", p->k);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height + 5;
+
+    // WALL THICKNESS & INNER PYRAMID
+    sprintf(stats_text, "WALL THICKNESS & INNER PYRAMID");
+    render_text(stats_text, text_x, text_y, header_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Wall Thickness (t, m):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->t);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Wall Thickness %% of Base:");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f%%", p->t_percent);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Inner Base Length (b, m):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->b);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Inner Height (h, m):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->h);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height + 5;
+
+    // GEOMETRIC DIMENSIONS
+    sprintf(stats_text, "GEOMETRIC DIMENSIONS");
+    render_text(stats_text, text_x, text_y, header_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Outer Base Diagonal (m):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->d_outer);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Inner Base Diagonal (m):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->d_inner);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Outer Slant Height (m):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->s_outer);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Inner Slant Height (m):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->s_inner);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Outer Edge Length (m):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->l_outer);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Inner Edge Length (m):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->l_inner);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Outer Surface Area (m²):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.0f", p->A_outer);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Inner Surface Area (m²):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.0f", p->A_inner);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height + 5;
+
+    // VOLUMETRIC DATA
+    sprintf(stats_text, "VOLUMETRIC DATA");
+    render_text(stats_text, text_x, text_y, header_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Total Volume (m³):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->V_total);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Hollow Volume (m³):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->V_hollow);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Stone Volume (m³):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->V_stone);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Hollow Volume %%:");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f%%", p->hollow_volume_percent);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Stone Volume %%:");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f%%", p->stone_volume_percent);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height + 5;
+
+    // SLOPES
+    sprintf(stats_text, "SLOPES");
+    render_text(stats_text, text_x, text_y, header_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Face Slope Angle (°):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->slope_angle_face);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+    text_y += line_height;
+
+    sprintf(stats_text, "Edge Slope Angle (°):");
+    render_text(stats_text, text_x + indent, text_y, label_color);
+    sprintf(stats_text, "%.1f", p->slope_angle_edge);
+    render_text(stats_text, text_x + 250, text_y, value_color);
+}
+
+void render_text(const char *text, int x, int y, SDL_Color color) {
+    if (!font) return;
+
+    SDL_Surface *surface = TTF_RenderText_Blended(font, text, color);
+    if (!surface) return;
+
+    SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (!texture) {
+        SDL_FreeSurface(surface);
+        return;
+    }
+
+    SDL_Rect dest = {x, y, surface->w, surface->h};
+    SDL_RenderCopy(renderer, texture, NULL, &dest);
+
+    SDL_DestroyTexture(texture);
+    SDL_FreeSurface(surface);
+}
+
+void draw_height_line(int x, int y1, int y2, const char *label, SDL_Color color) {
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderDrawLine(renderer, x, y1, x, y2);
+
+    int tick_length = 5;
+    SDL_RenderDrawLine(renderer, x - tick_length, y1, x + tick_length, y1);
+    SDL_RenderDrawLine(renderer, x - tick_length, y2, x + tick_length, y2);
+
+    if (label) {
+        render_text(label, x + 10, (y1 + y2) / 2 - 8, color);
+    }
+}
+
+void draw_width_line(int y, int x1, int x2, const char *label, SDL_Color color) {
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderDrawLine(renderer, x1, y, x2, y);
+
+    int tick_length = 5;
+    SDL_RenderDrawLine(renderer, x1, y - tick_length, x1, y + tick_length);
+    SDL_RenderDrawLine(renderer, x2, y - tick_length, x2, y + tick_length);
+
+    if (label) {
+        render_text(label, (x1 + x2) / 2 - 20, y + 10, color);
+    }
 }

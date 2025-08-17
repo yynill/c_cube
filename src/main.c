@@ -74,46 +74,57 @@ void print_pyramid_properties(Pyramid *p) {
 }
 
 int main() {
-    Pyramid *p = init_pyramid(100, 100, 0.1);
-    // Pyramid *p = init_pyramid(144.0, 89.0, 0.5);
+    Pyramid *p = init_pyramid(100, 100, 0.5);    // 100
+    // Pyramid *p = init_pyramid(230, 138.5, 0.5);     // giza
+    // Pyramid *p = init_pyramid(460, 297, 0.5);     // 2 * giza
+    // Pyramid *p = init_pyramid(144.0, 89.0, 0.5); // own
+    // Pyramid *p = init_pyramid(144.0, 89.0, 0.5); // biggest building
     print_pyramid_properties(p);
 
     if (!init_sdl()) return 1;
 
     int running = 1;
+    int view_mode = 0; // 0 = 3D view, 1 = 2D cross-section view
     SDL_Event event;
     const Uint8 *keyboard_state = SDL_GetKeyboardState(NULL);
 
     while (running) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) running = 0;
+            if (event.type == SDL_KEYDOWN) {
+                if (event.key.keysym.sym == SDLK_SPACE) view_mode = !view_mode;
+            }
         }
 
-        float rotation_speed = 0.05f;
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
         float zoom_speed = 0.01f;
-
-        if (keyboard_state[SDL_SCANCODE_X]) {
-            if (keyboard_state[SDL_SCANCODE_RIGHT]) camera->rotation_x += rotation_speed;
-            if (keyboard_state[SDL_SCANCODE_LEFT]) camera->rotation_x -= rotation_speed;
-        }
-        if (keyboard_state[SDL_SCANCODE_Y]) {
-            if (keyboard_state[SDL_SCANCODE_RIGHT]) camera->rotation_y += rotation_speed;
-            if (keyboard_state[SDL_SCANCODE_LEFT]) camera->rotation_y -= rotation_speed;
-        }
-        if (keyboard_state[SDL_SCANCODE_Z]) {
-            if (keyboard_state[SDL_SCANCODE_RIGHT]) camera->rotation_z += rotation_speed;
-            if (keyboard_state[SDL_SCANCODE_LEFT]) camera->rotation_z -= rotation_speed;
-        }
         if (keyboard_state[SDL_SCANCODE_UP]) camera->zoom += zoom_speed;
         if (keyboard_state[SDL_SCANCODE_DOWN]) camera->zoom -= zoom_speed;
         if (camera->zoom <= 0) camera->zoom = 0;
 
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
+        if (view_mode == 0) {
+            draw_gizmo();
+            draw_pyramid(p);
 
-        // draw_origin();
-        draw_gizmo();
-        draw_pyramid(p);
+            float rotation_speed = 0.05f;
+
+            if (keyboard_state[SDL_SCANCODE_X]) {
+                if (keyboard_state[SDL_SCANCODE_RIGHT]) camera->rotation_x += rotation_speed;
+                if (keyboard_state[SDL_SCANCODE_LEFT]) camera->rotation_x -= rotation_speed;
+            }
+            if (keyboard_state[SDL_SCANCODE_Y]) {
+                if (keyboard_state[SDL_SCANCODE_RIGHT]) camera->rotation_y += rotation_speed;
+                if (keyboard_state[SDL_SCANCODE_LEFT]) camera->rotation_y -= rotation_speed;
+            }
+            if (keyboard_state[SDL_SCANCODE_Z]) {
+                if (keyboard_state[SDL_SCANCODE_RIGHT]) camera->rotation_z += rotation_speed;
+                if (keyboard_state[SDL_SCANCODE_LEFT]) camera->rotation_z -= rotation_speed;
+            }
+
+        } else if (view_mode == 1) {
+            draw_pyramid_cross_section(p);
+        }
 
         SDL_RenderPresent(renderer);
         SDL_Delay(16);
